@@ -1,61 +1,46 @@
-from flask import Flask, request, abort
-from linebot.v3 import (
-    WebhookHandler
-)
-from linebot.v3.exceptions import (
-    InvalidSignatureError
-)
-from linebot.v3.messaging import (
-    Configuration,
-    ApiClient,
-    MessagingApi,
-    ReplyMessageRequest,
-    TextMessage
-)
-from linebot.v3.webhooks import (
-    MessageEvent,
-    TextMessageContent
-)
-from constant import CHANNEL_ACCESS_TOKEN, CHANNEL_SECRET
+import os
+import json
+import openai
+from flask import Flask, request
+from linebot import LineBotApi, WebhookHandler
+from linebot.models import TextSendMessage
 
+# Flaskアプリの初期化
 app = Flask(__name__)
 
-configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(CHANNEL_SECRET)
+# 環境変数からLINE APIとOpenAI APIのキーを取得
+LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-@app.route('/')
-def index():
-    return "Hello World!"
+line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-@app.route("/callback", methods=['POST'])
+# OpenAI APIキーの設定
+openai.api_key = OPENAI_API_KEY
+
+@app.route("/callback", methods=["POST"])
 def callback():
-    # get X-Line-Signature header value
-    signature = request.headers['X-Line-Signature']
-
-    # get request body as text
     body = request.get_data(as_text=True)
-    app.logger.info("Request body: " + body)
+    json_data = json.loads(body)
 
-    # handle webhook body
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        app.logger.info("Invalid signature. Please check your channel access token/channel secret.")
-        abort(400)
+    for event in json_data.get("events", []):
+        if event["type"] == "message" and event["message"]["type"] == "text":
+            user_message = event["message"]["text"]
 
-    return 'OK'
-
-
-@handler.add(MessageEvent, message=TextMessageContent)
-def handle_message(event):
-    with ApiClient(configuration) as api_client:
-        line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message_with_http_info(
-            ReplyMessageRequest(
-                reply_token=event.reply_token,
-                messages=[TextMessage(text=event.message.text)]
+            # OpenAI APIで応答生成
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a helpful LINE bot."},
+                    {"role": "user", "content": user_message}
+                ]
             )
-        )
+            reply_message = response["choices"][0]["message"]["content"]
 
-if __name__ == '__main__':
-    app.run()
+            # LINEに応答を送信
+            line_bot_api.reply_message(
+                event["replyToken"],
+                TextSendMessage(text=reply_message)
+            )
+    return "OK"
