@@ -1,22 +1,15 @@
-import os
-import json
-import openai
 from flask import Flask, request
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import TextSendMessage
+import openai
+from constant import CHANNEL_ACCESS_TOKEN, CHANNEL_SECRET, OPENAI_API_KEY
 
 # Flaskアプリの初期化
 app = Flask(__name__)
 
-# 環境変数からLINE APIとOpenAI APIのキーを取得
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
-
-# OpenAI APIキーの設定
+# LINE APIとOpenAI APIの設定
+line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(CHANNEL_SECRET)
 openai.api_key = OPENAI_API_KEY
 
 @app.route("/callback", methods=["POST"])
@@ -28,7 +21,7 @@ def callback():
         if event["type"] == "message" and event["message"]["type"] == "text":
             user_message = event["message"]["text"]
 
-            # OpenAI APIで応答生成
+            # OpenAI APIで応答を生成
             response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[
