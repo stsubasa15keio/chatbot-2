@@ -5,12 +5,16 @@ from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import openai
+import logging  # ロギングを追加
 
 # 環境変数の読み込み
 load_dotenv()
 CHANNEL_ACCESS_TOKEN = os.getenv('CHANNEL_ACCESS_TOKEN')
 CHANNEL_SECRET = os.getenv('CHANNEL_SECRET')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+# ログの設定
+logging.basicConfig(level=logging.DEBUG)
 
 # Flaskアプリケーションの初期化
 app = Flask(__name__)
@@ -28,7 +32,8 @@ def callback():
 
     try:
         handler.handle(body, signature)
-    except:
+    except Exception as e:
+        logging.error(f"Error in webhook: {e}")
         abort(400)
 
     return 'OK'
@@ -48,14 +53,23 @@ def handle_message(event):
             ]
         )
         reply_message = response['choices'][0]['message']['content'].strip()
+    except openai.error.OpenAIError as e:
+        # OpenAI API関連のエラーが発生した場合
+        logging.error(f"OpenAI API error: {e}")
+        reply_message = "OpenAI APIに問題が発生しました。後ほどお試しください。"
     except Exception as e:
+        # その他のエラーが発生した場合
+        logging.error(f"Unexpected error: {e}")
         reply_message = "エラーが発生しました。もう一度お試しください。"
 
     # LINEユーザーに応答を送信
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=reply_message)
-    )
+    try:
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=reply_message)
+        )
+    except Exception as e:
+        logging.error(f"Error in replying to LINE user: {e}")
 
 # アプリケーションの起動
 if __name__ == "__main__":
