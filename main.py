@@ -6,7 +6,6 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import openai
 import logging  # ロギングを追加
-from openai.error import OpenAIError  # 修正: OpenAIErrorのインポート
 
 # 環境変数の読み込み
 load_dotenv()
@@ -54,7 +53,7 @@ def handle_message(event):
             ]
         )
         reply_message = response['choices'][0]['message']['content'].strip()
-    except OpenAIError as e:
+    except openai.OpenAIError as e:
         # OpenAI API関連のエラーが発生した場合
         logging.error(f"OpenAI API error: {e}")
         reply_message = "OpenAI APIに問題が発生しました。後ほどお試しください。"
