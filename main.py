@@ -67,7 +67,7 @@ def handle_message(event):
                 {"role": "user", "content": user_message}
             ]
         )
-        reply_message = response['choices'][0]['message']['content'].strip()
+        reply_message = response.choices[0].message.content.strip()
         logging.info(f"OpenAI response: {reply_message}")
     except openai.OpenAIError as e:
         # OpenAI API関連のエラーが発生した場合
