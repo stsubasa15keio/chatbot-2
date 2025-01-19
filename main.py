@@ -13,8 +13,16 @@ CHANNEL_ACCESS_TOKEN = os.getenv('CHANNEL_ACCESS_TOKEN')
 CHANNEL_SECRET = os.getenv('CHANNEL_SECRET')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
+# 環境変数の確認
+if not all([CHANNEL_ACCESS_TOKEN, CHANNEL_SECRET, OPENAI_API_KEY]):
+    raise ValueError("環境変数が正しく設定されていません。")
+
 # ログの設定
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
 
 # Flaskアプリケーションの初期化
 app = Flask(__name__)
@@ -27,8 +35,14 @@ openai.api_key = OPENAI_API_KEY
 # Webhookエンドポイントの設定
 @app.route("/callback", methods=['POST'])
 def callback():
-    signature = request.headers['X-Line-Signature']
+    signature = request.headers.get('X-Line-Signature')
     body = request.get_data(as_text=True)
+
+    logging.info("Webhook received.")
+
+    if not signature:
+        logging.error("Signature missing.")
+        abort(400)
 
     try:
         handler.handle(body, signature)
@@ -42,6 +56,7 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text  # ユーザーからのメッセージ
+    logging.info(f"Received message from user: {user_message}")
 
     try:
         # OpenAI APIを呼び出して応答を取得
@@ -53,6 +68,7 @@ def handle_message(event):
             ]
         )
         reply_message = response['choices'][0]['message']['content'].strip()
+        logging.info(f"OpenAI response: {reply_message}")
     except openai.OpenAIError as e:
         # OpenAI API関連のエラーが発生した場合
         logging.error(f"OpenAI API error: {e}")
@@ -68,9 +84,10 @@ def handle_message(event):
             event.reply_token,
             TextSendMessage(text=reply_message)
         )
+        logging.info("Reply sent successfully.")
     except Exception as e:
         logging.error(f"Error in replying to LINE user: {e}")
 
 # アプリケーションの起動
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
