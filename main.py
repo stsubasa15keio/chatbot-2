@@ -72,11 +72,19 @@ def handle_message(event):
     except openai.OpenAIError as e:
         # OpenAI API関連のエラーが発生した場合
         logging.error(f"OpenAI API error: {e}")
-        reply_message = "OpenAI APIに問題が発生しました。後ほどお試しください。"
+        reply_message = (
+            f"OpenAI APIに問題が発生しました。\n"
+            f"エラー内容: {e.__class__.__name__}\n"
+            f"詳細: {str(e)}"
+        )
     except Exception as e:
         # その他のエラーが発生した場合
         logging.error(f"Unexpected error: {e}")
-        reply_message = "エラーが発生しました。もう一度お試しください。"
+        reply_message = (
+            f"システムエラーが発生しました。\n"
+            f"エラー内容: {e.__class__.__name__}\n"
+            f"詳細: {str(e)}"
+        )
 
     # LINEユーザーに応答を送信
     try:
